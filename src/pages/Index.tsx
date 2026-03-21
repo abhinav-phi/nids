@@ -1,16 +1,36 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import StatusBar from "@/components/StatusBar";
+import KPICards from "@/components/KPICards";
+import TrafficChart from "@/components/TrafficChart";
+import AttackTimeline from "@/components/AttackTimeline";
+import AttackPieChart from "@/components/AttackPieChart";
+import AlertFeed from "@/components/AlertFeed";
+import IPLeaderboard from "@/components/IPLeaderboard";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Index = () => {
+  const { isConnected, alertHistory } = useWebSocket();
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen bg-background">
+      <StatusBar wsConnected={isConnected} />
+      <main className="p-4 space-y-4 max-w-[1600px] mx-auto">
+        <KPICards />
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <div className="lg:col-span-3 space-y-4">
+            <TrafficChart alertHistory={alertHistory} />
+            <AttackTimeline />
+          </div>
+          <div className="lg:col-span-2">
+            <AlertFeed alertHistory={alertHistory} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <AttackPieChart />
+          <IPLeaderboard />
+        </div>
+      </main>
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
