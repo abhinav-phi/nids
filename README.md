@@ -1,32 +1,51 @@
 ## Project Structure
 
-```text
-├── notebooks/             
-│   ├── 01_eda.ipynb        
-│   └── 02_training.ipynb   
-├── src/                    
-│   ├── api/               
-│   │   ├── routes/         
-│   │   ├── database.py     
-│   │   ├── main.py         
-│   │   ├── models.py       
-│   │   └── schemas.py      
-│   ├── capture/            
-│   │   └── sniffer.py      
-│   ├── features/           
-│   │   └── extractor.py    
-│   ├── model/              
-│   │   ├── evaluate.py     
-│   │   ├── predict.py      
-│   │   └── train.py        
-│   └── simulation/         
+```
+nids/
+├── .gitignore
+├── LICENSE
+├── README.md
+├── check.py
+├── label_encoder.pkl
+├── model.pkl
+├── notebooks/
+│   ├── 01_eda.ipynb
+│   └── 02_training.ipynb
+├── package-lock.json
+├── requirements.txt
+├── scaler.pkl
+├── src/
+│   ├── __init__.py
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── database.py
+│   │   ├── main.py
+│   │   ├── models.py
+│   │   ├── routes/
+│   │   │   ├── __init__.py
+│   │   │   ├── alerts.py
+│   │   │   ├── predict.py
+│   │   │   └── stats.py
+│   │   └── schemas.py
+│   ├── capture/
+│   │   ├── __init__.py
+│   │   └── sniffer.py
+│   ├── features/
+│   │   ├── __init__.py
+│   │   └── extractor.py
+│   ├── model/
+│   │   ├── __init__.py
+│   │   ├── evaluate.py
+│   │   ├── predict.py
+│   │   └── train.py
+│   └── simulation/
+│       ├── __init__.py
 │       ├── sim_bruteforce.py
 │       ├── sim_ddos.py
 │       ├── sim_mixed.py
 │       └── sim_portscan.py
-├── tests/                  
-├── label_encoder.pkl       
-├── model.pkl               
-├── scaler.pkl              
-├── requirements.txt        
-└── README.md               
+├── test2_api.py
+└── tests/
+    ├── test_api.py
+    └── test_extractor.py
+```
