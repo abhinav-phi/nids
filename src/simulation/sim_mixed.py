@@ -21,9 +21,9 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-from sim_ddos       import simulate_ddos
-from sim_portscan   import simulate_portscan
-from sim_bruteforce import simulate_bruteforce
+from .sim_ddos       import simulate_ddos
+from .sim_portscan   import simulate_portscan
+from .sim_bruteforce import simulate_bruteforce
 
 
 def run_mixed(target_ip: str = "127.0.0.1", pause: int = 8):

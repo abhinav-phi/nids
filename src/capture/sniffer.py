@@ -1,37 +1,41 @@
 """
-sniffer.py — Live Network Packet Capture
-==========================================
+sniffer.py — Live Network Packet Capture (PRODUCTION)
+======================================================
 Captures packets from a network interface using Scapy.
 Groups packets into flows using a 5-tuple key.
 When a flow ends (timeout or TCP FIN/RST), extracts features
 using FlowExtractor and sends them to the FastAPI backend.
 
-Run standalone (for testing):
-    sudo python src/capture/sniffer.py --interface eth0
-    sudo python src/capture/sniffer.py --interface lo  # loopback for demo
+Run standalone:
+    python src/capture/sniffer.py --interface "Wi-Fi"
+    python src/capture/sniffer.py --interface auto      # auto-detect
+
+Integrated mode (started by FastAPI):
+    Controlled via /api/sniffer/start and /api/sniffer/stop
 """
 
+import os
+import sys
 import time
 import logging
 import threading
 import argparse
 import requests
+import platform
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable
 
 # Scapy imports
 try:
-    from scapy.all import sniff, IP, TCP, UDP, ICMP, conf
+    from scapy.all import sniff, IP, TCP, UDP, ICMP, conf, get_if_list, get_if_addr
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False
     print("[WARNING] Scapy not installed. Sniffer will not capture live packets.")
 
-# FlowExtractor from Step 3
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# FlowExtractor
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[2]))
 from src.features.extractor import FlowExtractor
 
 logging.basicConfig(
@@ -43,29 +47,97 @@ log = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-FLOW_TIMEOUT_SECONDS = 60       # close a flow if no new packets for 60s
-MAX_PACKETS_PER_FLOW = 1000     # safety cap — very long flows get cut here
+FLOW_TIMEOUT_SECONDS = 30       # close a flow if no new packets for 30s
+MAX_PACKETS_PER_FLOW = 500      # safety cap
 API_PREDICT_URL      = "http://localhost:8000/api/predict"
+ACTIVE_FLOW_LOG_INTERVAL = 15   # seconds between stats prints
 
-
-# ── Flow key type alias ───────────────────────────────────────────────────────
-# A flow is uniquely identified by these 5 values.
-# Type: (src_ip, dst_ip, src_port, dst_port, protocol)
+# ── Flow key ──────────────────────────────────────────────────────────────────
 FlowKey = Tuple[str, str, int, int, str]
 
 
 @dataclass
 class Flow:
-    """
-    Holds all packets belonging to one network flow,
-    along with metadata for timeout tracking.
-    """
+    """Holds all packets belonging to one network flow."""
     key: FlowKey
-    packets: List         = field(default_factory=list)  # raw Scapy packets
-    packet_dicts: List    = field(default_factory=list)  # plain dicts for extractor
+    packets: List         = field(default_factory=list)   # raw Scapy packets
+    packet_dicts: List    = field(default_factory=list)   # plain dicts for extractor
     start_time: float     = field(default_factory=time.time)
     last_seen: float      = field(default_factory=time.time)
     is_closed: bool       = False
+
+
+# ── Windows interface auto-detection ──────────────────────────────────────────
+
+def detect_interface() -> str:
+    """
+    Auto-detect the best network interface for packet capture.
+    On Windows: picks the interface with a non-loopback IP address.
+    On Linux/Mac: defaults to the first non-loopback interface.
+    """
+    if not SCAPY_AVAILABLE:
+        return "lo"
+
+    try:
+        ifaces = get_if_list()
+        log.info(f"Available interfaces: {ifaces}")
+
+        if platform.system() == "Windows":
+            # On Windows, try to find the main network adapter
+            # Scapy on Windows uses NPF device names or friendly names
+            try:
+                from scapy.arch.windows import get_windows_if_list
+                win_ifaces = get_windows_if_list()
+                for iface in win_ifaces:
+                    name = iface.get("name", "")
+                    desc = iface.get("description", "").lower()
+                    ips = iface.get("ips", [])
+
+                    # Skip loopback and virtual adapters
+                    if "loopback" in desc or "virtual" in desc:
+                        continue
+                    if "npcap" in desc:
+                        continue
+
+                    # Pick interface that has a real IP
+                    for ip in ips:
+                        if ip and not ip.startswith("127.") and ":" not in ip:
+                            log.info(f"Auto-detected interface: {name} ({desc}) [{ip}]")
+                            return name
+
+            except Exception as e:
+                log.debug(f"Windows interface detection fallback: {e}")
+
+            # Fallback: try common Windows interface names
+            for candidate in ifaces:
+                try:
+                    addr = get_if_addr(candidate)
+                    if addr and not addr.startswith("127.") and addr != "0.0.0.0":
+                        log.info(f"Auto-detected interface: {candidate} [{addr}]")
+                        return candidate
+                except Exception:
+                    continue
+
+        else:
+            # Linux/Mac
+            for candidate in ifaces:
+                if candidate == "lo":
+                    continue
+                try:
+                    addr = get_if_addr(candidate)
+                    if addr and not addr.startswith("127.") and addr != "0.0.0.0":
+                        log.info(f"Auto-detected interface: {candidate} [{addr}]")
+                        return candidate
+                except Exception:
+                    continue
+
+        # Absolute fallback
+        log.warning("Could not auto-detect interface, using first available")
+        return ifaces[0] if ifaces else "lo"
+
+    except Exception as e:
+        log.warning(f"Interface detection failed: {e}")
+        return "lo"
 
 
 class NetworkSniffer:
@@ -74,33 +146,45 @@ class NetworkSniffer:
     and submits completed flows to the ML prediction API.
 
     Usage:
-        sniffer = NetworkSniffer(interface="eth0")
-        sniffer.start()       # starts capture in background thread
+        sniffer = NetworkSniffer(interface="auto")
+        sniffer.start()
         ...
         sniffer.stop()
     """
 
     def __init__(
         self,
-        interface: str = "lo",
+        interface: str = "auto",
         api_url: str = API_PREDICT_URL,
         flow_timeout: int = FLOW_TIMEOUT_SECONDS,
+        direct_predict_fn: Optional[Callable] = None,
+        ws_broadcast_fn: Optional[Callable] = None,
     ):
-        self.interface   = interface
-        self.api_url     = api_url
+        # Auto-detect interface if requested
+        if interface == "auto":
+            self.interface = detect_interface()
+        else:
+            self.interface = interface
+
+        self.api_url = api_url
         self.flow_timeout = flow_timeout
+
+        # Direct function references (used in integrated mode — bypasses HTTP)
+        self._direct_predict_fn = direct_predict_fn
+        self._ws_broadcast_fn = ws_broadcast_fn
 
         # Active flows: FlowKey → Flow object
         self._flows: Dict[FlowKey, Flow] = {}
         self._flows_lock = threading.Lock()
 
-        # Feature extractor (from Step 3)
+        # Feature extractor
         self._extractor = FlowExtractor()
 
         # Stats
         self.total_packets   = 0
         self.total_flows     = 0
         self.total_api_calls = 0
+        self.total_alerts    = 0
 
         # Control flag
         self._running = False
@@ -121,7 +205,7 @@ class NetworkSniffer:
         log.info(f"Starting capture on interface '{self.interface}' ...")
         log.info(f"Sending predictions to: {self.api_url}")
 
-        # Thread 1: packet capture (blocking — runs inside its own thread)
+        # Thread 1: packet capture
         self._capture_thread = threading.Thread(
             target=self._capture_loop,
             daemon=True,
@@ -129,7 +213,7 @@ class NetworkSniffer:
         )
         self._capture_thread.start()
 
-        # Thread 2: flow timeout checker (runs every 5 seconds)
+        # Thread 2: flow timeout checker
         self._timeout_thread = threading.Thread(
             target=self._timeout_loop,
             daemon=True,
@@ -137,16 +221,19 @@ class NetworkSniffer:
         )
         self._timeout_thread.start()
 
-        log.info("Sniffer running. Press Ctrl+C to stop.")
+        log.info("Sniffer is running.")
 
     def stop(self):
         """Signal all threads to stop gracefully."""
         self._running = False
+        # Process any remaining active flows
+        self._flush_all_flows()
         log.info(
             f"Sniffer stopped. "
             f"Packets: {self.total_packets} | "
             f"Flows: {self.total_flows} | "
-            f"API calls: {self.total_api_calls}"
+            f"API calls: {self.total_api_calls} | "
+            f"Alerts: {self.total_alerts}"
         )
 
     def is_running(self) -> bool:
@@ -159,30 +246,66 @@ class NetworkSniffer:
     def _capture_loop(self):
         """
         Runs Scapy's sniff() continuously.
-        Each captured packet is passed to _process_packet().
-        'store=False' prevents Scapy from keeping packets in memory.
+        On Windows without Npcap, falls back to Layer 3 capture.
         """
         try:
-            sniff(
-                iface=self.interface,
-                prn=self._process_packet,   # callback for each packet
-                store=False,                 # don't buffer packets in RAM
-                stop_filter=lambda _: not self._running  # stop when flag is cleared
-            )
+            log.info(f"Capture thread started on '{self.interface}'")
+
+            # On Windows, try Layer 3 if Layer 2 fails
+            if platform.system() == "Windows":
+                try:
+                    # Try standard sniff first
+                    sniff(
+                        iface=self.interface,
+                        prn=self._process_packet,
+                        store=False,
+                        stop_filter=lambda _: not self._running,
+                    )
+                except (OSError, RuntimeError) as e:
+                    err_msg = str(e).lower()
+                    if "winpcap" in err_msg or "npcap" in err_msg or "not installed" in err_msg or "layer 2" in err_msg:
+                        log.warning(
+                            "Npcap/WinPcap not found — falling back to Layer 3 capture. "
+                            "Install Npcap from https://npcap.com for best results."
+                        )
+                        # Use Layer 3 socket (works without Npcap on Windows)
+                        from scapy.all import conf as scapy_conf
+                        sniff(
+                            prn=self._process_packet,
+                            store=False,
+                            stop_filter=lambda _: not self._running,
+                            opened_socket=scapy_conf.L3socket(),
+                        )
+                    else:
+                        raise
+            else:
+                sniff(
+                    iface=self.interface,
+                    prn=self._process_packet,
+                    store=False,
+                    stop_filter=lambda _: not self._running,
+                )
         except PermissionError:
             log.error(
-                "Permission denied. Run with sudo: sudo python src/capture/sniffer.py"
+                "Permission denied. Run with admin/sudo privileges, "
+                "or ensure Npcap is installed on Windows."
             )
+            self._running = False
+        except OSError as e:
+            if "No such device" in str(e) or "No such file" in str(e):
+                log.error(
+                    f"Interface '{self.interface}' not found. "
+                    f"Available: {get_if_list() if SCAPY_AVAILABLE else 'N/A'}"
+                )
+            else:
+                log.error(f"Capture error: {e}")
             self._running = False
         except Exception as e:
             log.error(f"Capture error: {e}")
             self._running = False
 
     def _process_packet(self, pkt):
-        """
-        Called for every captured packet.
-        Extracts the 5-tuple key and adds the packet to the correct flow.
-        """
+        """Called for every captured packet. Adds it to the correct flow."""
         if not SCAPY_AVAILABLE:
             return
 
@@ -196,11 +319,10 @@ class NetworkSniffer:
         if key is None:
             return
 
-        packet_dict = self._packet_to_dict(pkt)
+        packet_dict = self._packet_to_dict(pkt, key)
 
         with self._flows_lock:
             if key not in self._flows:
-                # New flow — create a Flow object
                 self._flows[key] = Flow(key=key)
                 log.debug(f"New flow: {key[0]}:{key[2]} → {key[1]}:{key[3]} [{key[4]}]")
 
@@ -214,11 +336,15 @@ class NetworkSniffer:
                 flow.is_closed = True
 
         # If flow is now closed, process it immediately
-        if self._flows.get(key) and self._flows[key].is_closed:
+        with self._flows_lock:
+            should_finalize = key in self._flows and self._flows[key].is_closed
+        if should_finalize:
             self._finalize_flow(key)
 
-        # Safety cap — if flow is very large, process it now
-        if key in self._flows and len(self._flows[key].packets) >= MAX_PACKETS_PER_FLOW:
+        # Safety cap
+        with self._flows_lock:
+            should_cap = key in self._flows and len(self._flows[key].packets) >= MAX_PACKETS_PER_FLOW
+        if should_cap:
             log.debug(f"Flow hit max packet cap ({MAX_PACKETS_PER_FLOW}), processing early.")
             self._finalize_flow(key)
 
@@ -227,11 +353,7 @@ class NetworkSniffer:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _timeout_loop(self):
-        """
-        Runs every 5 seconds.
-        Any flow that has not received a packet in FLOW_TIMEOUT_SECONDS
-        is treated as complete and sent to the API.
-        """
+        """Runs every 5 seconds. Finalizes timed-out flows."""
         while self._running:
             time.sleep(5)
             self._expire_timed_out_flows()
@@ -251,6 +373,13 @@ class NetworkSniffer:
             log.debug(f"Flow timed out after {self.flow_timeout}s: {key}")
             self._finalize_flow(key)
 
+    def _flush_all_flows(self):
+        """Finalize all remaining active flows (called on stop)."""
+        with self._flows_lock:
+            keys = list(self._flows.keys())
+        for key in keys:
+            self._finalize_flow(key)
+
     # ─────────────────────────────────────────────────────────────────────────
     # Flow finalization — extract features and call API
     # ─────────────────────────────────────────────────────────────────────────
@@ -266,21 +395,31 @@ class NetworkSniffer:
         if flow is None or not flow.packet_dicts:
             return
 
+        # Skip very small flows (< 3 packets) — not enough data for meaningful features
+        if len(flow.packet_dicts) < 3:
+            return
+
         self.total_flows += 1
 
-        # Extract features using FlowExtractor
+        # Extract features using FlowExtractor — produces CICIDS2017-keyed dict
         try:
-            features = self._extractor.extract_from_dicts(flow.packet_dicts)
+            features = self._extractor.extract_from_dicts(flow.packet_dicts, flow_key=key)
         except Exception as e:
             log.warning(f"Feature extraction failed for flow {key}: {e}")
             return
 
-        # Add metadata that the API needs for logging
+        # Add metadata (underscore prefix = metadata, stripped by API route)
         src_ip, dst_ip, src_port, dst_port, protocol = key
-        features["_source_ip"]      = src_ip       # underscore prefix = metadata
+        features["_source_ip"]      = src_ip
         features["_destination_ip"] = dst_ip
         features["_src_port"]       = float(src_port)
         features["_dst_port"]       = float(dst_port)
+
+        log.debug(
+            f"Flow finalized: {src_ip}:{src_port} → {dst_ip}:{dst_port} "
+            f"[{protocol}] ({len(flow.packet_dicts)} pkts, "
+            f"{len(features) - 4} features)"
+        )
 
         # Send to prediction API (non-blocking)
         threading.Thread(
@@ -298,7 +437,7 @@ class NetworkSniffer:
             response = requests.post(
                 self.api_url,
                 json=features,
-                timeout=5           # don't wait more than 5 seconds
+                timeout=10
             )
             self.total_api_calls += 1
 
@@ -309,33 +448,30 @@ class NetworkSniffer:
                 sev    = result.get("severity", "?")
 
                 if pred != "BENIGN":
+                    self.total_alerts += 1
                     log.warning(
-                        f"ALERT [{sev}]  {src_ip} → {dst_ip}  "
+                        f"🚨 ALERT [{sev}]  {src_ip} → {dst_ip}  "
                         f"{pred}  ({conf*100:.1f}% confidence)"
                     )
                 else:
-                    log.debug(f"BENIGN  {src_ip} → {dst_ip}")
+                    log.debug(f"✓ BENIGN  {src_ip} → {dst_ip}")
             else:
-                log.warning(f"API returned {response.status_code}: {response.text[:100]}")
+                log.warning(f"API returned {response.status_code}: {response.text[:200]}")
 
         except requests.exceptions.ConnectionError:
             log.debug("API not reachable. Is the FastAPI server running?")
         except requests.exceptions.Timeout:
-            log.warning("API call timed out after 5s.")
+            log.warning("API call timed out.")
         except Exception as e:
             log.warning(f"API call failed: {e}")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Packet parsing helpers
+    # Packet parsing helpers (ENHANCED for full feature extraction)
     # ─────────────────────────────────────────────────────────────────────────
 
     def _get_flow_key(self, pkt) -> Optional[FlowKey]:
         """
-        Build a 5-tuple (src_ip, dst_ip, src_port, dst_port, protocol)
-        from a packet. Returns None if the packet doesn't have an IP layer.
-
-        For bidirectional flows, we sort the endpoints so that
-        A→B and B→A are treated as the same flow.
+        Build a 5-tuple from a packet. Returns None for non-IP packets.
         """
         try:
             src_ip = pkt[IP].src
@@ -354,7 +490,6 @@ class NetworkSniffer:
                 dst_port = 0
                 protocol = "ICMP"
             else:
-                # Other IP protocol — use raw protocol number
                 src_port = 0
                 dst_port = 0
                 protocol = str(pkt[IP].proto)
@@ -364,32 +499,77 @@ class NetworkSniffer:
         except Exception:
             return None
 
-    def _packet_to_dict(self, pkt) -> dict:
+    def _packet_to_dict(self, pkt, flow_key: FlowKey) -> dict:
         """
-        Convert a Scapy packet to a plain dict so the FlowExtractor
-        can process it without needing Scapy installed everywhere.
+        Convert a Scapy packet to a plain dict with ALL fields
+        needed by FlowExtractor for CICIDS2017 feature computation.
+
+        Fields extracted:
+        - src_ip, dst_ip, src_port, dst_port, protocol
+        - size (total packet bytes)
+        - payload_len (application-layer payload bytes)
+        - header_len (IP + transport header bytes)
+        - time (epoch timestamp)
+        - tcp_flags (string like "SA", "PA", "F", "R")
+        - window_size (TCP window, 0 for non-TCP)
+        - ttl (IP time-to-live)
         """
         src_ip = pkt[IP].src if pkt.haslayer(IP) else ""
-        size   = len(pkt)
-        ts     = float(pkt.time)
+        dst_ip = pkt[IP].dst if pkt.haslayer(IP) else ""
+        total_size = len(pkt)
+        ts = float(pkt.time)
 
-        # Extract TCP flags as a string (e.g. "SA", "FP", "R")
+        # Extract protocol-specific fields
         tcp_flags = ""
+        window_size = 0
+        src_port = 0
+        dst_port = 0
+        transport_header_len = 0
+
         if pkt.haslayer(TCP):
             tcp_flags = str(pkt[TCP].flags)
+            window_size = int(pkt[TCP].window)
+            src_port = pkt[TCP].sport
+            dst_port = pkt[TCP].dport
+            # TCP header length (dataofs field, in 32-bit words)
+            transport_header_len = (pkt[TCP].dataofs or 5) * 4
+        elif pkt.haslayer(UDP):
+            src_port = pkt[UDP].sport
+            dst_port = pkt[UDP].dport
+            transport_header_len = 8  # UDP header is always 8 bytes
+        elif pkt.haslayer(ICMP):
+            transport_header_len = 8  # ICMP header is 8 bytes
+
+        # IP header length
+        ip_header_len = (pkt[IP].ihl or 5) * 4 if pkt.haslayer(IP) else 20
+
+        # Total header = IP header + transport header
+        header_len = ip_header_len + transport_header_len
+
+        # Payload = total size minus all headers minus any lower-layer headers (Ethernet=14)
+        eth_header = 14  # Ethernet frame header
+        payload_len = max(0, total_size - eth_header - header_len)
+
+        # TTL
+        ttl = pkt[IP].ttl if pkt.haslayer(IP) else 64
 
         return {
-            "src_ip":    src_ip,
-            "size":      size,
-            "time":      ts,
-            "tcp_flags": tcp_flags,
+            "src_ip":       src_ip,
+            "dst_ip":       dst_ip,
+            "src_port":     src_port,
+            "dst_port":     dst_port,
+            "protocol":     flow_key[4],
+            "size":         total_size,
+            "payload_len":  payload_len,
+            "header_len":   header_len,
+            "time":         ts,
+            "tcp_flags":    tcp_flags,
+            "window_size":  window_size,
+            "ttl":          ttl,
         }
 
     def _is_flow_terminator(self, pkt) -> bool:
-        """
-        Return True if this packet signals the end of a TCP connection
-        (FIN or RST flag set).
-        """
+        """Return True if this packet signals end of a TCP connection."""
         if not pkt.haslayer(TCP):
             return False
         flags = str(pkt[TCP].flags)
@@ -404,10 +584,12 @@ class NetworkSniffer:
         with self._flows_lock:
             active_flows = len(self._flows)
         return {
+            "interface":       self.interface,
             "total_packets":   self.total_packets,
             "total_flows":     self.total_flows,
             "active_flows":    active_flows,
             "total_api_calls": self.total_api_calls,
+            "total_alerts":    self.total_alerts,
             "running":         self._running,
         }
 
@@ -420,8 +602,8 @@ def main():
     parser = argparse.ArgumentParser(description="NIDS Network Sniffer")
     parser.add_argument(
         "--interface", "-i",
-        default="lo",
-        help="Network interface to listen on (default: lo)"
+        default="auto",
+        help="Network interface to listen on (default: auto-detect)"
     )
     parser.add_argument(
         "--api-url",
@@ -444,16 +626,17 @@ def main():
 
     sniffer.start()
 
-    # Keep the main thread alive; print stats every 30 seconds
+    # Keep main thread alive; print stats periodically
     try:
         while True:
-            time.sleep(30)
+            time.sleep(ACTIVE_FLOW_LOG_INTERVAL)
             stats = sniffer.get_stats()
             log.info(
                 f"Stats — Packets: {stats['total_packets']} | "
-                f"Flows processed: {stats['total_flows']} | "
-                f"Active flows: {stats['active_flows']} | "
-                f"API calls: {stats['total_api_calls']}"
+                f"Flows: {stats['total_flows']} | "
+                f"Active: {stats['active_flows']} | "
+                f"API calls: {stats['total_api_calls']} | "
+                f"Alerts: {stats['total_alerts']}"
             )
     except KeyboardInterrupt:
         log.info("Stopping sniffer ...")
