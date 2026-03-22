@@ -1,114 +1,103 @@
 """
-routes/predict.py — POST /api/predict
-=======================================
-Receives a feature dictionary from the sniffer (or any client),
-runs ML inference, saves the alert to the database,
-and returns the prediction with SHAP explanation.
+predict.py — NIDS Inference Wrapper
+=====================================
+Loads the saved model, scaler, and label encoder once at import time.
+Exposes a single predict() function used by the FastAPI backend.
 """
 
-import json
+import joblib
 import logging
-from datetime import datetime
+import numpy as np
+
+from pathlib import Path
 from typing import Optional
-
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
-from sqlalchemy.orm import Session
-
-from src.api.database import get_db
-from src.api.models import Alert
-from src.api.schemas import PredictRequest, PredictResponse, SHAPItem
 
 log = logging.getLogger(__name__)
 
-router = APIRouter()
+ROOT         = Path(__file__).resolve().parents[2]
+MODEL_PATH   = ROOT / "model.pkl"
+SCALER_PATH  = ROOT / "scaler.pkl"
+ENCODER_PATH = ROOT / "label_encoder.pkl"
 
-# We import the predict function lazily (inside the route) so the API starts
-# even if model.pkl doesn't exist yet — it will return a 503 instead of crashing.
-_predict_fn = None
+# ── Severity mapping ──────────────────────────────────────────────────────────
+SEVERITY_RULES = {
+    "DDoS":        ("CRITICAL", 0.90),
+    "DoS":         ("CRITICAL", 0.90),
+    "Bots":        ("HIGH",     0.80),
+    "Brute Force": ("HIGH",     0.80),
+    "Port Scanning":("MEDIUM",  0.70),
+    "Web Attacks": ("MEDIUM",   0.70),
+}
 
-def _get_predict():
-    """Load the predict function once and cache it."""
-    global _predict_fn
-    if _predict_fn is None:
-        try:
-            from src.model.predict import predict
-            _predict_fn = predict
-        except Exception as e:
-            log.warning(f"Could not load model: {e}")
-    return _predict_fn
+def get_severity(prediction: str, confidence: float) -> str:
+    if "normal" in prediction.lower():
+        return "NONE"
+    for attack_keyword, (level, threshold) in SEVERITY_RULES.items():
+        if attack_keyword.lower() in prediction.lower() and confidence >= threshold:
+            return level
+    if confidence >= 0.50:
+        return "LOW"
+    return "NONE"
 
 
-@router.post("/predict", response_model=PredictResponse)
-def predict_flow(
-    request: PredictRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-):
-    """
-    Accept a network flow's feature vector, run the ML model,
-    save the result to the database, and return the prediction.
-
-    The sniffer sends requests here automatically.
-    You can also test it manually via the Swagger UI at /docs.
-    """
-    predict_fn = _get_predict()
-    if predict_fn is None:
-        raise HTTPException(
-            status_code=503,
-            detail="ML model not loaded. Run src/model/train.py first."
+# ── Load artifacts ────────────────────────────────────────────────────────────
+def _load_artifacts():
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(
+            f"model.pkl not found at {MODEL_PATH}. Run src/model/train.py first."
         )
+    model   = joblib.load(MODEL_PATH)
+    scaler  = joblib.load(SCALER_PATH)
+    encoder = joblib.load(ENCODER_PATH)
+    log.info(f"Model loaded. Classes: {list(encoder.classes_)}")
+    return model, scaler, encoder
 
-    # ── Extract metadata fields (start with underscore) ───────────────────────
-    raw = request.model_dump(mode="python")
-    source_ip      = str(raw.get("_source_ip", "")) or "unknown"
-    destination_ip = str(raw.get("_destination_ip", "")) or "unknown"
-    src_port       = int(raw.get("_src_port", 0) or 0)
-    dst_port       = int(raw.get("_dst_port", 0) or 0)
 
-    # ── Build feature dict (no metadata) ─────────────────────────────────────
-    features = request.to_feature_dict()
+try:
+    _model, _scaler, _encoder = _load_artifacts()
+    _model_loaded = True
+except FileNotFoundError as e:
+    log.warning(str(e))
+    _model_loaded = False
 
-    # ── Run inference ─────────────────────────────────────────────────────────
+
+# ── Main predict function ─────────────────────────────────────────────────────
+def predict(features: dict, feature_names: Optional[list] = None) -> dict:
+    """
+    Run inference on a single network flow.
+    Returns: prediction, confidence, severity, shap_top5
+    """
+    if not _model_loaded:
+        raise RuntimeError("Model not loaded. Run train.py first.")
+
+    values = np.array(list(features.values()), dtype=np.float64).reshape(1, -1)
+    values_scaled = _scaler.transform(values)
+
+    pred_index    = int(_model.predict(values_scaled)[0])
+    probabilities = _model.predict_proba(values_scaled)[0]
+    confidence    = float(probabilities[pred_index])
+    prediction    = _encoder.inverse_transform([pred_index])[0]
+    severity      = get_severity(prediction, confidence)
+
+    # SHAP explanation
+    shap_top5 = []
     try:
-        result = predict_fn(features)
+        import shap
+        explainer  = shap.TreeExplainer(_model)
+        shap_values = explainer.shap_values(values_scaled)
+        names = feature_names or list(features.keys())
+        if isinstance(shap_values, list):
+            sv = shap_values[pred_index][0]
+        else:
+            sv = shap_values[0]
+        pairs = sorted(zip(names, sv.tolist()), key=lambda x: abs(x[1]), reverse=True)[:5]
+        shap_top5 = [{"feature": n, "impact": round(float(v), 4)} for n, v in pairs]
     except Exception as e:
-        log.error(f"Inference error: {e}")
-        raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
+        log.warning(f"SHAP failed: {e}")
 
-    prediction = result["prediction"]
-    confidence = result["confidence"]
-    severity   = result["severity"]
-    shap_top5  = result.get("shap_top5", [])
-
-    # ── Save to database ──────────────────────────────────────────────────────
-    alert = Alert(
-        timestamp      = datetime.utcnow(),
-        source_ip      = source_ip,
-        destination_ip = destination_ip,
-        src_port       = src_port,
-        dst_port       = dst_port,
-        prediction     = prediction,
-        confidence     = confidence,
-        severity       = severity,
-        shap_json      = json.dumps(shap_top5),
-    )
-    db.add(alert)
-    db.commit()
-    db.refresh(alert)
-
-    # ── Log alerts to console ─────────────────────────────────────────────────
-    if prediction != "BENIGN":
-        log.warning(
-            f"[{severity}] {source_ip} → {destination_ip}  "
-            f"{prediction}  ({confidence*100:.1f}%)"
-        )
-
-    return PredictResponse(
-        alert_id   = alert.id,
-        prediction = prediction,
-        confidence = confidence,
-        severity   = severity,
-        source_ip  = source_ip,
-        shap_top5  = [SHAPItem(**s) for s in shap_top5],
-        timestamp  = alert.timestamp.isoformat(),
-    )
+    return {
+        "prediction": prediction,
+        "confidence": round(confidence, 4),
+        "severity":   severity,
+        "shap_top5":  shap_top5,
+    }

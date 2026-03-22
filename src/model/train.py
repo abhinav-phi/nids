@@ -66,14 +66,25 @@ def load_data(raw_dir: Path) -> pd.DataFrame:
     log.info(f"Found {len(csv_files)} CSV file(s): {[f.name for f in csv_files]}")
 
     frames = []
+    # for f in csv_files:
+    #     log.info(f"  Loading {f.name} ...")
+    #     # df = pd.read_csv(f, encoding="utf-8", low_memory=False)
+    #     df = df.sample(n=50000, random_state=42)
+    #     # Strip leading/trailing spaces from column names (CICIDS2017 quirk)
+    #     df.columns = df.columns.str.strip()
+    #     frames.append(df)
+
+    # combined = pd.concat(frames, ignore_index=True)
+    # combined = combined.sample(n=50000, random_state=42)
+
     for f in csv_files:
         log.info(f"  Loading {f.name} ...")
-        df = pd.read_csv(f, encoding="utf-8", low_memory=False)
-        # Strip leading/trailing spaces from column names (CICIDS2017 quirk)
+        df = pd.read_csv(f, encoding="utf-8", low_memory=False, nrows=50000)
         df.columns = df.columns.str.strip()
         frames.append(df)
 
     combined = pd.concat(frames, ignore_index=True)
+    
     log.info(f"Total rows loaded: {len(combined):,}")
     return combined
 
@@ -113,7 +124,7 @@ def split_features_labels(df: pd.DataFrame):
     Separate the feature columns (X) from the label column (y).
     CICIDS2017 label column is named ' Label' (note the space — we stripped it).
     """
-    label_col = "Label"
+    label_col = "Attack Type"
 
     if label_col not in df.columns:
         # Try to auto-detect the label column
@@ -263,7 +274,7 @@ def train_xgboost(X_train, y_train, num_classes: int):
         random_state=42,
         eval_metric="mlogloss",  # multi-class log loss
         verbosity=0,             # suppress XGBoost logs
-        num_class=num_classes    # number of attack classes
+        # num_class=num_classes    # number of attack classes
     )
     xgb.fit(X_train, y_train)
 
