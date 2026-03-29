@@ -5,6 +5,18 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// Global error handler — don't crash on network errors
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (!err.response) {
+      // Network error — backend is offline
+      console.debug("[API] Backend offline:", err.message);
+    }
+    return Promise.reject(err);
+  }
+);
+
 export const getAlerts = (params?: Record<string, unknown>) =>
   api.get("/api/alerts", { params }).then((r) => r.data);
 
