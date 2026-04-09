@@ -1,11 +1,7 @@
 import requests
 import random
 import time
-
 API = 'http://localhost:8000/api/predict'
-
-# These 52 features match EXACTLY what cicids2017_cleaned.csv has
-# (same column names the model was trained on)
 FEATURE_NAMES = [
     'Destination Port', 'Flow Duration', 'Total Fwd Packets',
     'Total Length of Fwd Packets', 'Fwd Packet Length Max',
@@ -23,14 +19,10 @@ FEATURE_NAMES = [
     'act_data_pkt_fwd', 'min_seg_size_forward', 'Active Mean', 'Active Max',
     'Active Min', 'Idle Mean', 'Idle Max', 'Idle Min'
 ]
-
 print('Sending 20 fake flows to API...')
 print()
-
 for i in range(20):
-    # Build feature dict with random values
     data = {feat: round(random.uniform(0, 1000), 2) for feat in FEATURE_NAMES}
-
     try:
         r = requests.post(API, json=data, timeout=5)
         if r.status_code == 200:
@@ -43,8 +35,6 @@ for i in range(20):
             print(f'  [{i+1}/20]  Error {r.status_code}: {r.text[:80]}')
     except Exception as e:
         print(f'  [{i+1}/20]  Connection error: {e}')
-
     time.sleep(0.3)
-
 print()
 print('Done! Check dashboard now.')

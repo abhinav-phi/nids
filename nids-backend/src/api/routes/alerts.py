@@ -3,22 +3,16 @@ routes/alerts.py — GET /api/alerts
 =====================================
 Returns recent alerts from the database with optional filtering.
 """
-
 import logging
 from typing import Optional, List
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-
 from src.api.database import get_db
 from src.api.models import Alert
 from src.api.schemas import AlertResponse
-
 log = logging.getLogger(__name__)
 router = APIRouter()
-
-
 @router.get("/alerts", response_model=List[AlertResponse])
 def get_alerts(
     db:       Session = Depends(get_db),
@@ -35,7 +29,6 @@ def get_alerts(
 ):
     """
     Return recent alerts, newest first.
-
     Examples:
         GET /api/alerts                          → last 50 alerts
         GET /api/alerts?type=DDoS                → only DDoS alerts
@@ -44,17 +37,13 @@ def get_alerts(
         GET /api/alerts?exclude_benign=false     → include BENIGN flows too
     """
     query = db.query(Alert).order_by(desc(Alert.timestamp))
-
-    # Optional filters
     if exclude_benign:
         query = query.filter(Alert.prediction != "BENIGN")
     if type:
         query = query.filter(Alert.prediction.ilike(f"%{type}%"))
     if severity:
         query = query.filter(Alert.severity == severity.upper())
-
     alerts = query.offset(offset).limit(limit).all()
-
     return [
         AlertResponse(
             id             = a.id,

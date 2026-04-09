@@ -1,3 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+*.pkl
+data/raw/
+data/processed/
+*.db
+.env
+node_modules/
+
 # Logs
 logs
 *.log
@@ -22,3 +32,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+remove_comments.py

@@ -3,24 +3,19 @@ sim_bruteforce.py — SSH Brute Force Simulator
 ===============================================
 Sends repeated TCP packets to port 22 from one source IP.
 Mimics an automated SSH password brute-force attack.
-
 Characteristic features:
 - Many packets to port 22 from one source IP
 - Repeated connect attempts (SYN packets) that quickly close (RST/FIN)
 - High flow volume from a single source to a single destination port
-
 Run:
     sudo python src/simulation/sim_bruteforce.py
     sudo python src/simulation/sim_bruteforce.py --target 192.168.1.1 --attempts 100
 """
-
 import time
 import argparse
 import logging
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  [BRUTE-SIM]  %(message)s")
 log = logging.getLogger(__name__)
-
 try:
     from scapy.all import IP, TCP, Raw, send, conf
     conf.verb = 0
@@ -28,8 +23,6 @@ try:
 except ImportError:
     SCAPY_AVAILABLE = False
     log.error("Scapy is not installed. Run: pip install scapy")
-
-
 def simulate_bruteforce(
     target_ip:  str = "127.0.0.1",
     ssh_port:   int = 22,
@@ -40,7 +33,6 @@ def simulate_bruteforce(
     """
     Simulate an SSH brute force by sending repeated SYN packets to port 22.
     Each 'attempt' is a SYN followed by a RST (mimic failed login).
-
     Parameters
     ----------
     target_ip : IP of the SSH server being attacked
@@ -51,41 +43,28 @@ def simulate_bruteforce(
     """
     if not SCAPY_AVAILABLE:
         return
-
     log.info(f"Starting SSH brute force: {src_ip} → {target_ip}:{ssh_port}")
     log.info(f"Simulating {attempts} login attempts")
-
     for i in range(1, attempts + 1):
-        src_port = 10000 + i    # slightly different source port per attempt
-
-        # SYN — initiate connection
+        src_port = 10000 + i    
         syn = IP(src=src_ip, dst=target_ip) / TCP(
             sport=src_port, dport=ssh_port, flags="S", seq=1000
         )
         send(syn, verbose=False)
         time.sleep(0.005)
-
-        # Send a small payload (simulates SSH client hello / failed auth)
         data = IP(src=src_ip, dst=target_ip) / TCP(
             sport=src_port, dport=ssh_port, flags="PA", seq=1001
         ) / Raw(load=b"SSH-2.0-OpenSSH_8.0\r\n")
         send(data, verbose=False)
         time.sleep(0.005)
-
-        # RST — close abruptly (login rejected)
         rst = IP(src=src_ip, dst=target_ip) / TCP(
             sport=src_port, dport=ssh_port, flags="R", seq=1050
         )
         send(rst, verbose=False)
-
         if i % 20 == 0:
             log.info(f"  Attempt {i}/{attempts} ...")
-
         time.sleep(delay)
-
     log.info(f"Brute force simulation complete. {attempts} attempts sent to {target_ip}:{ssh_port}.")
-
-
 def main():
     parser = argparse.ArgumentParser(description="Simulate SSH brute force attack")
     parser.add_argument("--target",   default="127.0.0.1", help="Target IP")
@@ -94,9 +73,6 @@ def main():
     parser.add_argument("--attempts", type=int, default=100, help="Number of attempts")
     parser.add_argument("--delay",    type=float, default=0.05, help="Delay between attempts")
     args = parser.parse_args()
-
     simulate_bruteforce(args.target, args.port, args.src_ip, args.attempts, args.delay)
-
-
 if __name__ == "__main__":
     main()

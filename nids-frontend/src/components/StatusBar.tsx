@@ -1,19 +1,11 @@
-/**
- * StatusBar.tsx — Top header bar (Stitch design)
- * Shows: brand name, system status pill, live clock
- */
-
 import { useState, useEffect } from "react";
 import { checkHealth } from "@/api/client";
-
 interface StatusBarProps {
   wsConnected: boolean;
 }
-
 const StatusBar = ({ wsConnected }: StatusBarProps) => {
   const [online, setOnline] = useState(false);
   const [time, setTime]     = useState(new Date());
-
   useEffect(() => {
     const check = () => {
       checkHealth().then(() => setOnline(true)).catch(() => setOnline(false));
@@ -22,12 +14,10 @@ const StatusBar = ({ wsConnected }: StatusBarProps) => {
     const id = setInterval(check, 10000);
     return () => clearInterval(id);
   }, []);
-
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-
   return (
     <header
       className="sticky top-0 z-50 flex items-center justify-between px-8 py-4"
@@ -39,9 +29,9 @@ const StatusBar = ({ wsConnected }: StatusBarProps) => {
         boxShadow: "0 0 20px rgba(0,245,255,0.04)",
       }}
     >
-      {/* Left — title + status pill */}
+      {}
       <div className="flex items-center gap-6">
-        {/* Brand (hidden on large screens where sidebar is shown) */}
+        {}
         <span
           className="lg:hidden font-bold text-xl"
           style={{
@@ -52,8 +42,7 @@ const StatusBar = ({ wsConnected }: StatusBarProps) => {
         >
           The Sentinel
         </span>
-
-        {/* Page title on large screens */}
+        {}
         <span
           className="hidden lg:block font-bold text-lg"
           style={{
@@ -63,8 +52,7 @@ const StatusBar = ({ wsConnected }: StatusBarProps) => {
         >
           Dashboard
         </span>
-
-        {/* System active pill */}
+        {}
         <div
           className="flex items-center gap-2 px-3 py-1 rounded-full"
           style={{
@@ -83,8 +71,7 @@ const StatusBar = ({ wsConnected }: StatusBarProps) => {
             {online ? "System Active" : "Offline"}
           </span>
         </div>
-
-        {/* WS reconnecting */}
+        {}
         {!wsConnected && (
           <span
             className="text-xs flex items-center gap-1.5 animate-pulse"
@@ -94,8 +81,7 @@ const StatusBar = ({ wsConnected }: StatusBarProps) => {
           </span>
         )}
       </div>
-
-      {/* Right — clock */}
+      {}
       <div className="flex items-center gap-6">
         <div className="hidden xl:flex flex-col items-end">
           <span className="text-[10px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -108,8 +94,7 @@ const StatusBar = ({ wsConnected }: StatusBarProps) => {
             {time.toLocaleTimeString("en-US", { hour12: false })} UTC
           </span>
         </div>
-
-        {/* Mobile clock */}
+        {}
         <span
           className="xl:hidden font-mono-code text-xs"
           style={{ color: "rgba(255,255,255,0.35)" }}
@@ -120,5 +105,4 @@ const StatusBar = ({ wsConnected }: StatusBarProps) => {
     </header>
   );
 };
-
 export default StatusBar;

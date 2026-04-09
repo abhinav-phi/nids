@@ -7,52 +7,42 @@ import AlertFeed from "@/components/AlertFeed";
 import IPLeaderboard from "@/components/IPLeaderboard";
 import Sidebar from "@/components/Sidebar";
 import { useWebSocket } from "@/hooks/useWebSocket";
-
 const Index = () => {
   const { isConnected, alertHistory } = useWebSocket();
-
   return (
     <div className="min-h-screen bg-surface flex">
-      {/* Sidebar */}
+      {}
       <Sidebar />
-
-      {/* Main content area */}
+      {}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         <StatusBar wsConnected={isConnected} />
-
         <main className="flex-1 p-6 space-y-6 max-w-[1600px] w-full mx-auto">
-          {/* KPI Cards */}
+          {}
           <KPICards />
-
-          {/* Main grid */}
+          {}
           <div className="grid grid-cols-12 gap-6">
-            {/* Live Traffic Chart — 8 cols */}
+            {}
             <div className="col-span-12 lg:col-span-8">
               <TrafficChart alertHistory={alertHistory} />
             </div>
-
-            {/* Attack Pie — 4 cols */}
+            {}
             <div className="col-span-12 lg:col-span-4">
               <AttackPieChart />
             </div>
-
-            {/* Alert Feed — 9 cols */}
+            {}
             <div className="col-span-12 lg:col-span-9" style={{ minHeight: 440 }}>
               <AlertFeed alertHistory={alertHistory} />
             </div>
-
-            {/* IP Leaderboard — 3 cols */}
+            {}
             <div className="col-span-12 lg:col-span-3">
               <IPLeaderboard />
             </div>
-
-            {/* Attack Timeline — full width */}
+            {}
             <div className="col-span-12">
               <AttackTimeline />
             </div>
           </div>
         </main>
-
         <footer className="border-t px-6 py-4 flex justify-between items-center"
           style={{ borderColor: "rgba(255,255,255,0.05)" }}>
           <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
@@ -68,5 +58,4 @@ const Index = () => {
     </div>
   );
 };
-
 export default Index;

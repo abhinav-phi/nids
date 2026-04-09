@@ -1,19 +1,10 @@
-/**
- * AlertFeed.tsx — Live Threat Log (Stitch design)
- * Stitch styling: glass panel, sticky header, severity pill colors
- * NO changes to data logic, WebSocket, or state.
- */
-
 import { useState, useEffect, useRef } from "react";
 import type { Alert } from "@/hooks/useWebSocket";
 import SHAPExplainer from "./SHAPExplainer";
 import { ChevronRight } from "lucide-react";
-
 interface Props {
   alertHistory: Alert[];
 }
-
-// Stitch design severity colors
 const SEV_STYLES: Record<string, { color: string; bg: string; border: string; label: string }> = {
   CRITICAL: {
     color:  "#ff716c",
@@ -46,13 +37,11 @@ const SEV_STYLES: Record<string, { color: string; bg: string; border: string; la
     label:  "None",
   },
 };
-
 const AlertFeed = ({ alertHistory }: Props) => {
   const [selected, setSelected] = useState<Alert | null>(null);
   const [newIds, setNewIds]     = useState<Set<string>>(new Set());
   const prevLenRef              = useRef(0);
   const alerts                  = alertHistory.slice(0, 50);
-
   useEffect(() => {
     if (alertHistory.length > prevLenRef.current) {
       const fresh = alertHistory.slice(0, alertHistory.length - prevLenRef.current);
@@ -63,7 +52,6 @@ const AlertFeed = ({ alertHistory }: Props) => {
       return () => clearTimeout(t);
     }
   }, [alertHistory]);
-
   return (
     <div
       className="rounded-2xl border flex flex-col h-full overflow-hidden"
@@ -74,7 +62,7 @@ const AlertFeed = ({ alertHistory }: Props) => {
         boxShadow:   "0 4px 24px rgba(0,0,0,0.3)",
       }}
     >
-      {/* Header */}
+      {}
       <div
         className="flex items-center justify-between px-8 py-5 shrink-0"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)" }}
@@ -110,8 +98,7 @@ const AlertFeed = ({ alertHistory }: Props) => {
           View Historical Archive
         </button>
       </div>
-
-      {/* Body */}
+      {}
       {alerts.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3"
           style={{ color: "rgba(255,255,255,0.2)" }}>
@@ -149,7 +136,6 @@ const AlertFeed = ({ alertHistory }: Props) => {
                 const id        = alert.timestamp + alert.src_ip;
                 const isNew     = newIds.has(id);
                 const isSelected = selected === alert;
-
                 return (
                   <>
                     <tr
@@ -227,5 +213,4 @@ const AlertFeed = ({ alertHistory }: Props) => {
     </div>
   );
 };
-
 export default AlertFeed;

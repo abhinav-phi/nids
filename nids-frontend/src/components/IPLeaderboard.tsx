@@ -1,13 +1,6 @@
-/**
- * IPLeaderboard.tsx — Top Adversaries (Stitch design)
- * Matches Stitch: red border left for #1, danger labels, block button at bottom
- * NO changes to API calls or state.
- */
-
 import { useState, useEffect } from "react";
 import { getIPLeaderboard } from "@/api/client";
 import { Skull } from "lucide-react";
-
 interface IPEntry {
   ip?:             string;
   source_ip?:      string;
@@ -15,7 +8,6 @@ interface IPEntry {
   last_seen:       string;
   top_attack_type?: string;
 }
-
 const relativeTime = (ts: string) => {
   if (!ts) return "—";
   const diff = Date.now() - new Date(ts).getTime();
@@ -24,18 +16,14 @@ const relativeTime = (ts: string) => {
   if (mins < 60) return `${mins}m ago`;
   return `${Math.floor(mins / 60)}h ago`;
 };
-
-// Stitch rank styles
 const RANK_STYLE = [
   { border: "#ff716c", bg: "rgba(255,113,108,0.05)", badge: "Critical Vector", badgeColor: "#ff716c", badgeBg: "rgba(255,113,108,0.12)" },
   { border: "#699cff", bg: "rgba(105,156,255,0.04)", badge: "Port Scanner",    badgeColor: "#699cff", badgeBg: "rgba(105,156,255,0.12)" },
   { border: "rgba(255,255,255,0.12)", bg: "rgba(255,255,255,0.03)", badge: "Infiltration", badgeColor: "rgba(255,255,255,0.4)", badgeBg: "rgba(255,255,255,0.06)" },
 ];
-
 const IPLeaderboard = () => {
   const [data, setData]       = useState<IPEntry[]>([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const fetchData = () => {
       getIPLeaderboard()
@@ -49,7 +37,6 @@ const IPLeaderboard = () => {
     const id = setInterval(fetchData, 30000);
     return () => clearInterval(id);
   }, []);
-
   return (
     <div
       className="rounded-2xl p-6 flex flex-col h-full"
@@ -60,7 +47,7 @@ const IPLeaderboard = () => {
         boxShadow:    "0 4px 24px rgba(0,0,0,0.3)",
       }}
     >
-      {/* Header */}
+      {}
       <div className="flex items-center gap-2 mb-6">
         <Skull size={18} style={{ color: "#ff716c" }} />
         <span
@@ -82,8 +69,7 @@ const IPLeaderboard = () => {
           </span>
         )}
       </div>
-
-      {/* List */}
+      {}
       {loading ? (
         <div className="space-y-3 flex-1">
           {[...Array(4)].map((_, i) => (
@@ -128,7 +114,6 @@ const IPLeaderboard = () => {
                     {rs.badge}
                   </span>
                 </div>
-
                 <span
                   className="px-2 py-1 rounded text-xs font-bold shrink-0 ml-3"
                   style={{
@@ -143,8 +128,7 @@ const IPLeaderboard = () => {
           })}
         </div>
       )}
-
-      {/* Block button */}
+      {}
       <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <button
           className="w-full py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
@@ -168,5 +152,4 @@ const IPLeaderboard = () => {
     </div>
   );
 };
-
 export default IPLeaderboard;

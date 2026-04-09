@@ -1,27 +1,17 @@
-/**
- * SHAPExplainer.tsx — AI Insight / SHAP panel (Stitch design)
- * Matches Stitch slide-out panel: cyan accent header, red/blue bars
- * FIX: handles both 'value' and 'impact' field names from backend
- */
-
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { X, Brain } from "lucide-react";
 import type { Alert } from "@/hooks/useWebSocket";
-
 interface Props {
   alert: Alert;
   onClose: () => void;
 }
-
 const SHAPExplainer = ({ alert, onClose }: Props) => {
-  // FIX: normalize both 'value' and 'impact' field names
   const shapData = (alert.shap_top5 || []).map((s: any) => ({
     feature: s.feature,
     value:   s.value ?? s.impact ?? 0,
   }));
-
   const sev = (alert.severity || "LOW").toUpperCase();
   const sevColor = {
     CRITICAL: "#ff716c",
@@ -29,7 +19,6 @@ const SHAPExplainer = ({ alert, onClose }: Props) => {
     MEDIUM:   "#ac8aff",
     LOW:      "rgba(255,255,255,0.4)",
   }[sev] || "#a1faff";
-
   return (
     <div
       className="animate-slide-down rounded-xl mt-2 p-5"
@@ -39,7 +28,7 @@ const SHAPExplainer = ({ alert, onClose }: Props) => {
         backdropFilter: "blur(12px)",
       }}
     >
-      {/* Header */}
+      {}
       <div className="flex items-start justify-between mb-4">
         <div>
           <span
@@ -70,8 +59,7 @@ const SHAPExplainer = ({ alert, onClose }: Props) => {
           <X size={16} />
         </button>
       </div>
-
-      {/* Detection badge */}
+      {}
       <div
         className="flex items-center gap-3 p-3 rounded-lg mb-4"
         style={{
@@ -83,8 +71,7 @@ const SHAPExplainer = ({ alert, onClose }: Props) => {
           Detection: {alert.attack_type || alert.prediction} — {(alert.confidence * 100).toFixed(1)}% confidence
         </span>
       </div>
-
-      {/* Meta row */}
+      {}
       <div className="grid grid-cols-4 gap-2 mb-4">
         {[
           { label: "Prediction",  value: alert.attack_type || alert.prediction || "—" },
@@ -100,8 +87,7 @@ const SHAPExplainer = ({ alert, onClose }: Props) => {
           </div>
         ))}
       </div>
-
-      {/* SHAP bars */}
+      {}
       {shapData.length === 0 ? (
         <div className="text-center py-6 text-sm" style={{ color: "rgba(255,255,255,0.2)" }}>
           No SHAP data available for this alert
@@ -140,5 +126,4 @@ const SHAPExplainer = ({ alert, onClose }: Props) => {
     </div>
   );
 };
-
 export default SHAPExplainer;

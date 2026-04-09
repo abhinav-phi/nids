@@ -1,20 +1,10 @@
-/**
- * AttackPieChart.tsx — Threat Distribution (Stitch design)
- * Stitch: donut chart with center count label, vertical legend
- * NO changes to API calls or data logic.
- */
-
 import { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
 import { getStats } from "@/api/client";
-
-// Stitch color palette: primary, secondary, tertiary, error
 const COLORS = ["#a1faff", "#699cff", "#ac8aff", "#ff716c", "#3fb950", "#e3b341", "rgba(255,255,255,0.4)"];
-
 const AttackPieChart = () => {
   const [data, setData]       = useState<{ name: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const fetchData = () => {
       getStats()
@@ -35,9 +25,7 @@ const AttackPieChart = () => {
     const id = setInterval(fetchData, 15000);
     return () => clearInterval(id);
   }, []);
-
   const total = data.reduce((s, d) => s + d.value, 0);
-
   return (
     <div
       className="rounded-2xl p-8 flex flex-col h-full"
@@ -48,7 +36,7 @@ const AttackPieChart = () => {
         boxShadow:    "0 4px 24px rgba(0,0,0,0.3)",
       }}
     >
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between mb-6">
         <h2
           className="text-xl font-bold"
@@ -69,7 +57,6 @@ const AttackPieChart = () => {
           </span>
         )}
       </div>
-
       {loading ? (
         <div className="flex-1 h-48 rounded-xl animate-pulse"
           style={{ background: "rgba(255,255,255,0.04)" }} />
@@ -81,7 +68,7 @@ const AttackPieChart = () => {
         </div>
       ) : (
         <>
-          {/* Donut chart */}
+          {}
           <div className="relative flex justify-center py-4">
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -104,8 +91,7 @@ const AttackPieChart = () => {
                     />
                   ))}
                 </Pie>
-
-                {/* Center label */}
+                {}
                 <text x="40%" y="48%" textAnchor="middle" dominantBaseline="middle"
                   fill="#e8eafb" fontSize={26} fontWeight="700"
                   style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -115,7 +101,6 @@ const AttackPieChart = () => {
                   fill="rgba(255,255,255,0.3)" fontSize={11}>
                   Active Alerts
                 </text>
-
                 <Tooltip
                   contentStyle={{
                     background:   "rgba(10,14,25,0.95)",
@@ -136,8 +121,7 @@ const AttackPieChart = () => {
               </PieChart>
             </ResponsiveContainer>
           </div>
-
-          {/* Manual legend below for Stitch design */}
+          {}
           <div className="mt-2 space-y-2">
             {data.slice(0, 4).map((d, i) => (
               <div key={d.name} className="flex items-center justify-between text-sm">
@@ -159,5 +143,4 @@ const AttackPieChart = () => {
     </div>
   );
 };
-
 export default AttackPieChart;

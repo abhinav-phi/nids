@@ -1,33 +1,24 @@
-/**
- * KPICards.tsx — 4 KPI cards (Stitch bento layout)
- * Exact match to Stitch design: left border accent, glass panel, icons
- * NO changes to API calls or data logic.
- */
-
 import { useState, useEffect, useRef } from "react";
 import { getStats } from "@/api/client";
 import { Activity, AlertTriangle, Clock, Shield } from "lucide-react";
-
 interface Stats {
   total_flows:    number;
   total_attacks:  number;
   uptime_seconds: number;
   benign_count:   number;
 }
-
 const formatUptime = (s: number) => {
   const h   = Math.floor(s / 3600).toString().padStart(2, "0");
   const m   = Math.floor((s % 3600) / 60).toString().padStart(2, "0");
   const sec = Math.floor(s % 60).toString().padStart(2, "0");
   return `${h}:${m}:${sec}`;
 };
-
 const CARDS = [
   {
     label:     "Total Network Flows",
     sublabel:  "Live Monitor",
     icon:      Activity,
-    accent:    "#a1faff",      // primary (cyan)
+    accent:    "#a1faff",      
     bg:        "rgba(161,250,255,0.06)",
     border:    "#a1faff",
     glow:      "rgba(161,250,255,0.08)",
@@ -37,7 +28,7 @@ const CARDS = [
     label:     "Attacks Detected",
     sublabel:  "Detection Engine",
     icon:      AlertTriangle,
-    accent:    "#ff716c",      // error (red)
+    accent:    "#ff716c",      
     bg:        "rgba(255,113,108,0.06)",
     border:    "#ff716c",
     glow:      "rgba(255,113,108,0.1)",
@@ -47,7 +38,7 @@ const CARDS = [
     label:     "System Uptime",
     sublabel:  "Service Health",
     icon:      Clock,
-    accent:    "#699cff",      // secondary (blue)
+    accent:    "#699cff",      
     bg:        "rgba(105,156,255,0.06)",
     border:    "#699cff",
     glow:      "rgba(105,156,255,0.08)",
@@ -57,20 +48,18 @@ const CARDS = [
     label:     "Benign Traffic",
     sublabel:  "ML Confidence",
     icon:      Shield,
-    accent:    "#ac8aff",      // tertiary (purple)
+    accent:    "#ac8aff",      
     bg:        "rgba(172,138,255,0.06)",
     border:    "#ac8aff",
     glow:      "rgba(172,138,255,0.08)",
     iconBg:    "rgba(172,138,255,0.1)",
   },
 ];
-
 const KPICards = () => {
   const [stats, setStats]     = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash]     = useState(false);
   const prevRef               = useRef<Stats | null>(null);
-
   useEffect(() => {
     const fetchData = () => {
       getStats()
@@ -89,7 +78,6 @@ const KPICards = () => {
     const id = setInterval(fetchData, 10000);
     return () => clearInterval(id);
   }, []);
-
   const values = stats
     ? [
         stats.total_flows.toLocaleString(),
@@ -98,7 +86,6 @@ const KPICards = () => {
         stats.benign_count.toLocaleString(),
       ]
     : ["—", "—", "—:—:—", "—"];
-
   if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
@@ -112,7 +99,6 @@ const KPICards = () => {
       </div>
     );
   }
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
       {CARDS.map((c, i) => {
@@ -131,7 +117,7 @@ const KPICards = () => {
               backdropFilter: "blur(12px)",
             }}
           >
-            {/* Top row */}
+            {}
             <div className="flex items-start justify-between">
               <div
                 className="w-11 h-11 rounded-lg flex items-center justify-center"
@@ -146,8 +132,7 @@ const KPICards = () => {
                 {c.sublabel}
               </span>
             </div>
-
-            {/* Value + label */}
+            {}
             <div>
               <p className="text-xs font-medium mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>
                 {c.label}
@@ -168,5 +153,4 @@ const KPICards = () => {
     </div>
   );
 };
-
 export default KPICards;

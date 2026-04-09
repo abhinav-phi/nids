@@ -1,28 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-/* ── Stitch Design System Tokens ────────────────────────────── */
 @layer base {
   :root {
-    /* Stitch palette */
     --surface-dim:       #0a0e19;
     --surface:           #0a0e19;
     --surface-container: #141927;
     --surface-bright:    #262c3d;
-
     --primary:    #a1faff;
     --secondary:  #699cff;
     --tertiary:   #ac8aff;
     --error:      #ff716c;
-
     --on-surface:         #e8eafb;
     --on-surface-variant: rgba(255,255,255,0.4);
     --outline-variant:    rgba(255,255,255,0.06);
-
-    /* Shadcn/Radix compat */
     --background: 220 47% 5%;
     --foreground:  210 14% 93%;
     --card:        220 35% 8%;
@@ -45,72 +37,54 @@
     --radius:      0.6rem;
   }
 }
-
 @layer base {
   * { @apply border-border; }
-
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
     background-color: #0a0e19;
     background-image:
-      /* cyber grid */
       linear-gradient(rgba(161, 250, 255, 0.025) 1px, transparent 1px),
       linear-gradient(90deg, rgba(161, 250, 255, 0.025) 1px, transparent 1px),
-      /* ambient glow top */
       radial-gradient(ellipse 60% 40% at 30% 0%, rgba(161,250,255,0.04) 0%, transparent 60%),
-      /* ambient glow bottom */
       radial-gradient(ellipse 80% 50% at 70% 100%, rgba(172,138,255,0.04) 0%, transparent 60%);
     background-size: 40px 40px, 40px 40px, 100% 100%, 100% 100%;
     min-height: 100vh;
   }
 }
-
-/* ── Utility classes ─────────────────────────────────────────── */
 @layer utilities {
   .font-mono-code {
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   }
-
   .font-headline {
     font-family: 'Space Grotesk', sans-serif;
   }
-
-  /* Glass panel (Stitch glass-panel class) */
   .glass-panel {
     background: rgba(26, 31, 46, 0.6);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
 }
-
-/* ── Custom scrollbar (Stitch style) ─────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-
-/* ── Animations ──────────────────────────────────────────────── */
 @keyframes flash-new {
   0%   { background-color: rgba(227,179,65,0.2); }
   100% { background-color: transparent; }
 }
-
 @keyframes slide-down {
   from { opacity: 0; max-height: 0;   transform: translateY(-8px); }
   to   { opacity: 1; max-height: 600px; transform: translateY(0); }
 }
-
 @keyframes pulse-number {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.5; color: #a1faff; }
 }
-
 @keyframes blink-dot {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.15; }
 }
-
 .animate-flash-new    { animation: flash-new 600ms ease-out forwards; }
 .animate-slide-down   { animation: slide-down 280ms ease-out forwards; overflow: hidden; }
 .animate-pulse-number { animation: pulse-number 400ms ease-out; }

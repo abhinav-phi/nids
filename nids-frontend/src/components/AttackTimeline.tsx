@@ -1,31 +1,21 @@
-/**
- * AttackTimeline.tsx — 24-Hour Threat Trajectory (Stitch design)
- * Stitch: horizontal bar chart, severity-colored bars, hour labels
- * NO changes to data polling or computation logic.
- */
-
 import { useState, useEffect, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { getAlerts } from "@/api/client";
-
 const SEVERITY_COLORS: Record<string, string> = {
   CRITICAL: "#ff716c",
   HIGH:     "#699cff",
   MEDIUM:   "#ac8aff",
   LOW:      "rgba(255,255,255,0.2)",
 };
-
 const SEVERITY_RANK: Record<string, number> = {
   CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1,
 };
-
 const AttackTimeline = () => {
   const [alerts, setAlerts]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const fetch = () => {
       getAlerts()
@@ -39,7 +29,6 @@ const AttackTimeline = () => {
     const id = setInterval(fetch, 30000);
     return () => clearInterval(id);
   }, []);
-
   const data = useMemo(() => {
     const now = new Date();
     const hours: { hour: string; count: number; maxSeverity: string }[] = [];
@@ -59,7 +48,6 @@ const AttackTimeline = () => {
     }
     return hours;
   }, [alerts]);
-
   return (
     <div
       className="rounded-2xl p-8"
@@ -70,7 +58,7 @@ const AttackTimeline = () => {
         boxShadow:    "0 4px 24px rgba(0,0,0,0.3)",
       }}
     >
-      {/* Header */}
+      {}
       <div className="flex items-start justify-between mb-8">
         <div>
           <h2
@@ -83,8 +71,7 @@ const AttackTimeline = () => {
             Detected attack attempts categorized by hourly clusters
           </p>
         </div>
-
-        {/* Legend */}
+        {}
         <div className="flex items-center gap-4">
           {[
             { color: "#a1faff", label: "Benign Flow" },
@@ -100,8 +87,7 @@ const AttackTimeline = () => {
           ))}
         </div>
       </div>
-
-      {/* Chart */}
+      {}
       {loading ? (
         <div className="h-52 rounded-xl animate-pulse" style={{ background: "rgba(255,255,255,0.04)" }} />
       ) : (
@@ -144,5 +130,4 @@ const AttackTimeline = () => {
     </div>
   );
 };
-
 export default AttackTimeline;

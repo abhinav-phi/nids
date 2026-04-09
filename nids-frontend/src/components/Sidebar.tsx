@@ -1,18 +1,9 @@
-/**
- * Sidebar.tsx — "The Sentinel" sidebar navigation
- * Matches the Stitch design exactly:
- *  - Shield logo + brand name
- *  - Nav items with active state
- *  - Export Logs button at bottom
- */
-
 import { useState } from "react";
 import {
   LayoutDashboard, BellRing, FileText, Network,
   Brain, Settings, HelpCircle, BookOpen, Download,
   Shield,
 } from "lucide-react";
-
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard",       active: true  },
   { icon: BellRing,        label: "Alerts",          active: false },
@@ -21,10 +12,8 @@ const NAV_ITEMS = [
   { icon: Brain,           label: "AI Explainability", active: false },
   { icon: Settings,        label: "Settings",        active: false },
 ];
-
 const Sidebar = () => {
   const [active, setActive] = useState("Dashboard");
-
   return (
     <aside
       className="hidden lg:flex flex-col h-screen w-64 fixed left-0 top-0 z-50 border-r"
@@ -33,7 +22,7 @@ const Sidebar = () => {
         borderColor: "rgba(255,255,255,0.05)",
       }}
     >
-      {/* Brand */}
+      {}
       <div className="p-6 flex items-center gap-3 shrink-0">
         <div
           className="w-10 h-10 rounded-lg flex items-center justify-center shadow-lg"
@@ -59,8 +48,7 @@ const Sidebar = () => {
           </p>
         </div>
       </div>
-
-      {/* Navigation */}
+      {}
       <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map(({ icon: Icon, label }) => {
           const isActive = active === label;
@@ -95,8 +83,7 @@ const Sidebar = () => {
           );
         })}
       </nav>
-
-      {/* Bottom actions */}
+      {}
       <div className="p-4 shrink-0 space-y-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <button
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all hover:brightness-110"
@@ -109,7 +96,6 @@ const Sidebar = () => {
           <Download size={16} />
           Export Logs
         </button>
-
         <div className="flex gap-4 px-1">
           <button
             className="flex items-center gap-1.5 text-xs transition-colors"
@@ -134,5 +120,4 @@ const Sidebar = () => {
     </aside>
   );
 };
-
 export default Sidebar;

@@ -1,9 +1,3 @@
-/**
- * TrafficChart.tsx — Real-Time Traffic Volatility (Stitch design)
- * Glass panel, live feed badge, area chart with cyan/red gradient
- * NO changes to data polling or state logic.
- */
-
 import { useMemo, useState, useEffect, useRef } from "react";
 import {
   AreaChart, Area, XAxis, YAxis,
@@ -11,21 +5,17 @@ import {
 } from "recharts";
 import type { Alert } from "@/hooks/useWebSocket";
 import { getStats } from "@/api/client";
-
 interface Props {
   alertHistory: Alert[];
 }
-
 interface DataPoint {
   time:   string;
   alerts: number;
   flows:  number;
 }
-
 const TrafficChart = ({ alertHistory }: Props) => {
   const [flowHistory, setFlowHistory] = useState<{ time: string; flows: number }[]>([]);
   const prevFlows = useRef(0);
-
   useEffect(() => {
     const tick = () => {
       getStats()
@@ -41,7 +31,6 @@ const TrafficChart = ({ alertHistory }: Props) => {
     const id = setInterval(tick, 5000);
     return () => clearInterval(id);
   }, []);
-
   const alertBuckets = useMemo(() => {
     const buckets: Record<string, number> = {};
     alertHistory.forEach((a) => {
@@ -50,7 +39,6 @@ const TrafficChart = ({ alertHistory }: Props) => {
     });
     return buckets;
   }, [alertHistory]);
-
   const data: DataPoint[] = useMemo(() => {
     return flowHistory.map((f) => ({
       time:   f.time,
@@ -58,7 +46,6 @@ const TrafficChart = ({ alertHistory }: Props) => {
       alerts: alertBuckets[f.time] || 0,
     }));
   }, [flowHistory, alertBuckets]);
-
   return (
     <div
       className="rounded-2xl p-8 relative overflow-hidden flex flex-col"
@@ -69,7 +56,7 @@ const TrafficChart = ({ alertHistory }: Props) => {
         boxShadow:    "0 4px 24px rgba(0,0,0,0.3)",
       }}
     >
-      {/* Header */}
+      {}
       <div className="flex items-start justify-between mb-8">
         <div>
           <h2
@@ -95,8 +82,7 @@ const TrafficChart = ({ alertHistory }: Props) => {
           </span>
         </div>
       </div>
-
-      {/* Chart */}
+      {}
       {data.length === 0 ? (
         <div
           className="flex items-center justify-center h-52 rounded-xl"
@@ -160,5 +146,4 @@ const TrafficChart = ({ alertHistory }: Props) => {
     </div>
   );
 };
-
 export default TrafficChart;
