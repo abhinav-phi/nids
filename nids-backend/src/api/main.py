@@ -23,7 +23,7 @@ from typing import List, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.database import engine, Base, SessionLocal
-from src.api.routes import predict, alerts, stats
+from src.api.routes import predict, alerts, stats, chatbot
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  [%(name)s]  %(levelname)s  %(message)s",
@@ -103,6 +103,7 @@ app.add_middleware(
 app.include_router(predict.router, prefix="/api", tags=["Prediction"])
 app.include_router(alerts.router,  prefix="/api", tags=["Alerts"])
 app.include_router(stats.router,   prefix="/api", tags=["Stats"])
+app.include_router(chatbot.router, prefix="/api", tags=["Chatbot"])
 @app.websocket("/ws/live")
 async def websocket_live(websocket: WebSocket):
     """

@@ -6,7 +6,11 @@ import AttackPieChart from "@/components/AttackPieChart";
 import AlertFeed from "@/components/AlertFeed";
 import IPLeaderboard from "@/components/IPLeaderboard";
 import Sidebar from "@/components/Sidebar";
+<<<<<<< HEAD
 import SHAPExplainer from "@/components/SHAPExplainer";
+=======
+import Chatbot from "@/components/Chatbot";
+>>>>>>> 3fe5d089df572b708dfd118e3f1f1a167ab91b68
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useState } from "react";
 
@@ -89,6 +93,9 @@ const Index = () => {
           </div>
         </footer>
       </div>
+
+      {/* Floating AI Chatbot */}
+      <Chatbot />
     </div>
   );
 };

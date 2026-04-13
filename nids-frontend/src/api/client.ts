@@ -20,4 +20,20 @@ export const getIPLeaderboard = () =>
   api.get("/api/ip-leaderboard").then((r) => r.data);
 export const checkHealth = () =>
   api.get("/health").then((r) => r.data);
+
+export const sendChatMessage = (
+  message: string,
+  history: Array<{ role: string; content: string }>
+) =>
+  api
+    .post("/api/chat", { message, history }, { timeout: 30000 })
+    .then(
+      (r) =>
+        r.data as {
+          reply: string;
+          tool_used?: string[];
+          data_freshness_note?: string;
+        }
+    );
+
 export default api;

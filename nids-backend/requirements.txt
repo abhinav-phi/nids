@@ -29,4 +29,10 @@ websockets==12.0
 # ── Testing ───────────────────────────────────────────────────
 pytest==8.1.1
 httpx==0.27.0
-requests
+requests
+
+# --------- llm ---------------------
+langchain
+langchain-community
+langchain-core
+langchain-google-genai

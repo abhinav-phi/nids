@@ -47,3 +47,14 @@ class HealthResponse(BaseModel):
     status: str
     db:     str
     model:  str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[List[dict]] = None
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    tool_used: Optional[List[str]] = None
+    data_freshness_note: Optional[str] = None
