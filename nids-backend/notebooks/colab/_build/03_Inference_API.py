@@ -479,7 +479,7 @@ else:
             take = group.sample(n=min(want - got[cls], len(group)), random_state=42)
             batches.append(take)
             got[cls] += len(take)
-        if all(got[c] >= need.get(c, PER_TYPE) for c in set(need) | set(got.index)):
+        if all(got[c] >= need.get(c, PER_TYPE) for c in set(need) | set(got)):
             break
 
     samples = pd.concat(batches).sample(frac=1, random_state=42).reset_index(drop=True)
