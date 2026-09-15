@@ -1,0 +1,9 @@
+# Default ownership: the project maintainer reviews everything.
+# Add collaborators as: /path/ @username  (or @org/team)
+*                                   @abhinav-phi
+
+# Notebook build system — changes here regenerate all four notebooks
+/nids-backend/notebooks/colab/_build/   @abhinav-phi
+
+# Specification set — keep docs in sync per CONTRIBUTING.md
+/docs/                                  @abhinav-phi
