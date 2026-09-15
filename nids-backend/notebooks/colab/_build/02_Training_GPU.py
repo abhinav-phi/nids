@@ -313,13 +313,16 @@ def train_eval(model, name, X_tr, y_tr, X_te, y_te, device="CPU"):
     })
     return RESULTS[-1]
 
-def make_xgb(n_estimators=300, max_depth=6, learning_rate=0.1, device="cuda"):
+def make_xgb(n_estimators=300, max_depth=6, learning_rate=0.1, device="cuda", **extra):
     """XGBClassifier that prefers the GPU and degrades gracefully:
-    xgboost ≥2.0 → device='cuda'; older → tree_method='gpu_hist'; else CPU."""
+    xgboost ≥2.0 → device='cuda'; older → tree_method='gpu_hist'; else CPU.
+    Any additional keyword arguments (e.g. Optuna-tuned subsample /
+    colsample_bytree / min_child_weight) override the defaults."""
     common = dict(n_estimators=n_estimators, max_depth=max_depth,
                   learning_rate=learning_rate, subsample=0.8,
                   colsample_bytree=0.8, random_state=SEED,
                   eval_metric="mlogloss", verbosity=0, n_jobs=-1)
+    common.update(extra)
     try:
         return XGBClassifier(device=device, tree_method="hist", **common), device.upper()
     except (TypeError, ValueError):
