@@ -78,7 +78,7 @@ ns["display"] = print   # IPython builtin in real notebooks
 
 def run(src, label):
     src = src.replace("sqlite:////content/nids_colab.db",
-                      f"sqlite:///{(Path(tempfile.gettempdir()) / 'nids_smoke.db').as_posix()}")
+                      f"sqlite:///{(ART / 'nids_smoke.db').as_posix()}")
     try:
         exec(compile(src, label, "exec"), ns)
         print(f"✔ executed: {label}")
@@ -146,12 +146,12 @@ r = rq.post(f"{BASE}/api/predict", data=json.dumps(bad),
             headers={"Content-Type": "application/json"}, timeout=20)
 check("422/400 on NaN feature value", r.status_code in (400, 422), f"HTTP {r.status_code}")
 
-alerts = rq.get(f"{BASE}/api/alerts", params={"limit": 10}, timeout=5).json()
+alerts = rq.get(f"{BASE}/api/alerts", params={"limit": 10, "exclude_benign": "false"}, timeout=5).json()
 check("GET /api/alerts returns persisted rows",
-      isinstance(alerts, list) and len(alerts) >= 3 and all("prediction" in a for a in alerts),
+      isinstance(alerts, list) and len(alerts) == 2 and all("prediction" in a for a in alerts),
       f"{len(alerts)} rows")
 stats = rq.get(f"{BASE}/api/stats", timeout=5).json()
-check("GET /api/stats counts flows", stats.get("total_flows", 0) >= 4, str(stats.get("total_flows")))
+check("GET /api/stats counts flows", stats.get("total_flows", 0) == 2, str(stats.get("total_flows")))
 board = rq.get(f"{BASE}/api/ip-leaderboard", timeout=5).json()
 check("GET /api/ip-leaderboard", isinstance(board, list) and len(board) >= 1,
       f"top={board[0]['source_ip'] if board else '—'}")

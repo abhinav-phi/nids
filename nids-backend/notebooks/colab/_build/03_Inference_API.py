@@ -309,77 +309,83 @@ display(pd.Series(f_ddos).to_frame("value").head(52).T)
 # %%
 import matplotlib.pyplot as plt
 
-X_test = np.load(ART_DIR / "X_test.npy")
-y_test = np.load(ART_DIR / "y_test.npy")
-feature_names = json.loads((ART_DIR / "feature_names.json").read_text())
-print(f"Loaded holdout: {X_test.shape[0]} test rows × {X_test.shape[1]} features")
-
-# SHAP on a 200-row sample
-rng = np.random.RandomState(42)
-sample_idx = rng.choice(len(X_test), min(200, len(X_test)), replace=False)
-X_sample_scaled = _scaler.transform(X_test[sample_idx].astype(np.float64))
-shap_values = _explainer.shap_values(X_sample_scaled)
-
-# Global mean |SHAP| — averaged over classes & samples.
-# shap < 0.46 returns a list of per-class (n_samples, n_features) arrays;
-# shap >= 0.46 returns one (n_samples, n_features, n_classes) ndarray.
-sv = np.asarray(shap_values, dtype=object) if isinstance(shap_values, list) else shap_values
-if isinstance(shap_values, list):
-    try:
-        arr = np.array(shap_values)                      # (n_classes, n_samples, n_features)
-        mean_abs = np.abs(arr).mean(axis=(0, 1))
-    except (TypeError, ValueError):
-        mean_abs = np.mean([np.abs(s).mean(axis=0) for s in shap_values], axis=0)
+if _explainer is None:
+    # load_artifacts already reported why (e.g. shap import failure) — the API
+    # serves predictions without explanations; nothing else in this notebook
+    # depends on SHAP, so skip instead of crashing the run.
+    print("SHAP deep dive skipped — explainer unavailable (see Step 2 output).")
 else:
-    if sv.ndim == 3:                                     # (n_samples, n_features, n_classes)
-        mean_abs = np.abs(sv).mean(axis=(0, 2))
-    else:                                                # binary case: (n_samples, n_features)
-        mean_abs = np.abs(sv).mean(axis=0)
-mean_abs = np.asarray(mean_abs).reshape(-1)              # always 1-D per feature
+    X_test = np.load(ART_DIR / "X_test.npy")
+    y_test = np.load(ART_DIR / "y_test.npy")
+    feature_names = json.loads((ART_DIR / "feature_names.json").read_text())
+    print(f"Loaded holdout: {X_test.shape[0]} test rows × {X_test.shape[1]} features")
 
-top = np.argsort(mean_abs)[::-1][:15]
-print("Top-15 features by global mean |SHAP|:")
-for i in top:
-    print(f"  {feature_names[i]:<32} {mean_abs[i]:.4f}")
+    # SHAP on a 200-row sample
+    rng = np.random.RandomState(42)
+    sample_idx = rng.choice(len(X_test), min(200, len(X_test)), replace=False)
+    X_sample_scaled = _scaler.transform(X_test[sample_idx].astype(np.float64))
+    shap_values = _explainer.shap_values(X_sample_scaled)
 
-# Bar plot
-plt.figure(figsize=(10, 7))
-plt.barh([feature_names[i][:32] for i in top[::-1]], mean_abs[top[::-1]], color="#2563eb")
-plt.xlabel("Mean |SHAP value|")
-plt.title("Global Feature Importance (CICIDS2017, all classes)", fontweight="bold")
-plt.tight_layout()
-plt.savefig(ART_DIR / "shap_global_importance.png", dpi=150, bbox_inches="tight")
-plt.show()
+    # Global mean |SHAP| — averaged over classes & samples.
+    # shap < 0.46 returns a list of per-class (n_samples, n_features) arrays;
+    # shap >= 0.46 returns one (n_samples, n_features, n_classes) ndarray.
+    sv = np.asarray(shap_values, dtype=object) if isinstance(shap_values, list) else shap_values
+    if isinstance(shap_values, list):
+        try:
+            arr = np.array(shap_values)                      # (n_classes, n_samples, n_features)
+            mean_abs = np.abs(arr).mean(axis=(0, 1))
+        except (TypeError, ValueError):
+            mean_abs = np.mean([np.abs(s).mean(axis=0) for s in shap_values], axis=0)
+    else:
+        if sv.ndim == 3:                                     # (n_samples, n_features, n_classes)
+            mean_abs = np.abs(sv).mean(axis=(0, 2))
+        else:                                                # binary case: (n_samples, n_features)
+            mean_abs = np.abs(sv).mean(axis=0)
+    mean_abs = np.asarray(mean_abs).reshape(-1)              # always 1-D per feature
 
-# SHAP summary plot (beeswarm) — impressive visual for the report
-# Per-class mean |SHAP| — grouped bars for the top-8 features.
-# (shap.summary_plot's beeswarm is slow/risky in headless Colab — this is
-#  a fast, reliable equivalent built on the same shap_values.)
-if isinstance(shap_values, list):
-    per_class = np.stack([np.abs(s).mean(axis=0) for s in shap_values])    # (C, F)
-else:
-    per_class = np.abs(sv).mean(axis=0).T if sv.ndim == 3 else None        # (C, F) from (F, C)
+    top = np.argsort(mean_abs)[::-1][:15]
+    print("Top-15 features by global mean |SHAP|:")
+    for i in top:
+        print(f"  {feature_names[i]:<32} {mean_abs[i]:.4f}")
 
-if per_class is not None:
-    top8 = top[:8]
-    x = np.arange(len(top8))
-    w = 0.8 / per_class.shape[0]
-    fig, ax = plt.subplots(figsize=(13, 6))
-    for c in range(per_class.shape[0]):
-        label = (_encoder.classes_[c]
-                 if c < len(_encoder.classes_) else f"class {c}")
-        ax.bar(x + (c - per_class.shape[0] / 2) * w, per_class[c, top8], w,
-               label=label)
-    ax.set_xticks(x)
-    ax.set_xticklabels([feature_names[i][:18] for i in top8],
-                       rotation=30, ha="right")
-    ax.set_ylabel("Mean |SHAP value|")
-    ax.set_title("Per-class SHAP importance — top-8 features", fontweight="bold")
-    ax.legend(fontsize=8, ncol=2)
+    # Bar plot
+    plt.figure(figsize=(10, 7))
+    plt.barh([feature_names[i][:32] for i in top[::-1]], mean_abs[top[::-1]], color="#2563eb")
+    plt.xlabel("Mean |SHAP value|")
+    plt.title("Global Feature Importance (CICIDS2017, all classes)", fontweight="bold")
     plt.tight_layout()
-    plt.savefig(ART_DIR / "shap_per_class.png", dpi=150, bbox_inches="tight")
+    plt.savefig(ART_DIR / "shap_global_importance.png", dpi=150, bbox_inches="tight")
     plt.show()
-print("SHAP plots saved →", ART_DIR)
+
+    # SHAP summary plot (beeswarm) — impressive visual for the report
+    # Per-class mean |SHAP| — grouped bars for the top-8 features.
+    # (shap.summary_plot's beeswarm is slow/risky in headless Colab — this is
+    #  a fast, reliable equivalent built on the same shap_values.)
+    if isinstance(shap_values, list):
+        per_class = np.stack([np.abs(s).mean(axis=0) for s in shap_values])    # (C, F)
+    else:
+        per_class = np.abs(sv).mean(axis=0).T if sv.ndim == 3 else None        # (C, F) from (F, C)
+
+    if per_class is not None:
+        top8 = top[:8]
+        x = np.arange(len(top8))
+        w = 0.8 / per_class.shape[0]
+        fig, ax = plt.subplots(figsize=(13, 6))
+        for c in range(per_class.shape[0]):
+            label = (_encoder.classes_[c]
+                     if c < len(_encoder.classes_) else f"class {c}")
+            ax.bar(x + (c - per_class.shape[0] / 2) * w, per_class[c, top8], w,
+                   label=label)
+        ax.set_xticks(x)
+        ax.set_xticklabels([feature_names[i][:18] for i in top8],
+                           rotation=30, ha="right")
+        ax.set_ylabel("Mean |SHAP value|")
+        ax.set_title("Per-class SHAP importance — top-8 features", fontweight="bold")
+        ax.legend(fontsize=8, ncol=2)
+        plt.tight_layout()
+        plt.savefig(ART_DIR / "shap_per_class.png", dpi=150, bbox_inches="tight")
+        plt.show()
+    print("SHAP plots saved →", ART_DIR)
 
 # %%include frag_api.py
 # %%include frag_server.py
