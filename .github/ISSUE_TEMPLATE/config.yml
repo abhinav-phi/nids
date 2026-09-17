@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: ❓ Question / Support
+    url: https://github.com/abhinav-phi/nids/discussions
+    about: Ask usage questions (dataset setup, artifact flow, Colab runtime) here — see also SUPPORT.md.
+
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/abhinav-phi/nids/security/advisories/new
+    about: Report vulnerabilities PRIVATELY via GitHub Security Advisories — never in a public issue. See SECURITY.md.
+
+  - name: 📖 Documentation
+    url: https://github.com/abhinav-phi/nids/tree/main/docs
+    about: PRD, TechSpec, AppFlow, Design, Schema, ImplementationPlan, Tracker and Rules — most questions are answered there.
