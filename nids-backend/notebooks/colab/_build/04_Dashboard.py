@@ -309,7 +309,14 @@ if HAVE_GRADIO:
 
         REFRESH_OUTPUTS = [kpi_md, pie, sev, feed, board, tl, shap_dd]
         refresh_btn.click(refresh_all, outputs=REFRESH_OUTPUTS)
-        demo.load(refresh_all, outputs=REFRESH_OUTPUTS, every=3)
+        demo.load(refresh_all, outputs=REFRESH_OUTPUTS)   # initial paint on page open
+        if hasattr(gr, "Timer"):
+            # Gradio ≥ 5: auto-refresh via Timer.tick — `load(every=)` was removed
+            # in Gradio 5 (TypeError on Colab's gradio 5.x).
+            gr.Timer(3).tick(refresh_all, outputs=REFRESH_OUTPUTS)
+        else:
+            # Gradio 4.x fallback: repeated load event
+            demo.load(refresh_all, outputs=REFRESH_OUTPUTS, every=3)
 
     demo.launch(share=True, show_error=True)
 else:
