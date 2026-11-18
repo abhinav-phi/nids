@@ -162,7 +162,7 @@ from starlette.concurrency import run_in_threadpool
 from typing import List, Optional
 
 _START_TIME = time.time()
-RATE_LIMIT_PER_MINUTE = 120
+RATE_LIMIT_PER_MINUTE = 300
 MAX_BODY_BYTES = 1_000_000
 _rate_hits: dict = defaultdict(list)
 OPEN_PATHS = {"/", "/health", "/docs", "/openapi.json"}
