@@ -50,7 +50,10 @@ FEED_HEADERS = ["Time (UTC)", "Source", "Type", "Severity", "Conf"]
 
 def _get(path, **params):
     try:
-        return rq.get(f"{API_BASE}{path}", params=params or None, timeout=5).json()
+        r = rq.get(f"{API_BASE}{path}", params=params or None, timeout=5)
+        # Non-200 (e.g. 429 rate limit) bodies must not leak into the UI as
+        # fake "stats"/"alerts" dicts — they caused KeyError/TypeError toasts.
+        return r.json() if r.status_code == 200 else None
     except Exception:
         return None
 
